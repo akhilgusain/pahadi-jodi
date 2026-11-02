@@ -1,0 +1,10 @@
+# Baseline allows layered on default-deny (service-level policies come from the Helm chart)
+apiVersion: networking.k8s.io/v1
+kind: NetworkPolicy
+metadata: {name: allow-alb-to-gateway, namespace: pj-gateway}
+spec:
+  podSelector: {matchLabels: {app.kubernetes.io/name: api-gateway}}
+  policyTypes: [Ingress]
+  ingress:
+    - from: [{ipBlock: {cidr: 10.0.0.0/8}}]   # ALB ENIs in private subnets
+      ports: [{port: 8080}]

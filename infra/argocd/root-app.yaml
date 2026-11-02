@@ -1,0 +1,18 @@
+# App-of-apps: bootstrap once with `kubectl apply -f root-app.yaml` per cluster.
+apiVersion: argoproj.io/v1alpha1
+kind: Application
+metadata:
+  name: root
+  namespace: argocd
+  finalizers: [resources-finalizer.argocd.argoproj.io]
+spec:
+  project: default
+  source:
+    repoURL: https://github.com/pahadi-jodi/platform.git
+    targetRevision: main
+    path: infra/argocd/apps
+    directory: {recurse: true}
+  destination: {server: https://kubernetes.default.svc, namespace: argocd}
+  syncPolicy:
+    automated: {prune: true, selfHeal: true}
+    syncOptions: [CreateNamespace=true]

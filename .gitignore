@@ -1,0 +1,10 @@
+target/
+node_modules/
+dist/
+.env
+*.pem
+.idea/
+.vscode/
+.terraform/
+*.tfstate*
+.expo/

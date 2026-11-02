@@ -1,0 +1,1 @@
+{"root":["./src/App.tsx","./src/main.tsx","./src/app/i18n.ts","./src/app/store.ts","./src/features/auth/AuthPage.tsx","./src/features/profile/ProfilePage.tsx","./src/lib/api.ts"],"version":"5.6.3"}

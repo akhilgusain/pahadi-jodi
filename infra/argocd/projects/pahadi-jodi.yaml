@@ -1,0 +1,33 @@
+apiVersion: argoproj.io/v1alpha1
+kind: AppProject
+metadata: {name: pahadi-jodi, namespace: argocd}
+spec:
+  description: Pahadi Jodi workloads
+  sourceRepos: ["https://github.com/pahadi-jodi/platform.git", "https://charts.external-secrets.io", "https://kyverno.github.io/kyverno", "https://argoproj.github.io/argo-helm", "https://kedacore.github.io/charts", "https://prometheus-community.github.io/helm-charts", "https://charts.jetstack.io", "https://aws.github.io/eks-charts", "https://helm.elastic.co"]
+  destinations:
+    - {server: https://kubernetes.default.svc, namespace: "pj-*"}
+    - {server: https://kubernetes.default.svc, namespace: "observability"}
+    - {server: https://kubernetes.default.svc, namespace: "logging"}
+    - {server: https://kubernetes.default.svc, namespace: "kube-system"}
+    - {server: https://kubernetes.default.svc, namespace: "cert-manager"}
+    - {server: https://kubernetes.default.svc, namespace: "external-secrets"}
+    - {server: https://kubernetes.default.svc, namespace: "kyverno"}
+    - {server: https://kubernetes.default.svc, namespace: "keda"}
+    - {server: https://kubernetes.default.svc, namespace: "argo-rollouts"}
+  clusterResourceWhitelist:
+    - {group: "", kind: Namespace}
+    - {group: rbac.authorization.k8s.io, kind: "*"}
+    - {group: kyverno.io, kind: ClusterPolicy}
+    - {group: external-secrets.io, kind: ClusterSecretStore}
+    - {group: cert-manager.io, kind: ClusterIssuer}
+    - {group: argoproj.io, kind: ClusterAnalysisTemplate}
+    - {group: karpenter.sh, kind: NodePool}
+    - {group: karpenter.k8s.aws, kind: EC2NodeClass}
+    - {group: apiextensions.k8s.io, kind: CustomResourceDefinition}
+  orphanedResources: {warn: true}
+  syncWindows:
+    - {kind: deny, schedule: "0 18 * * 5", duration: 62h, applications: ["*"], namespaces: ["pj-*"], manualSync: true, clusters: []}  # prod freeze Fri 18:00 UTC -> Mon (manual override allowed)
+  roles:
+    - name: deployer
+      policies: ["p, proj:pahadi-jodi:deployer, applications, sync, pahadi-jodi/*, allow"]
+      groups: ["pj-release-managers"]

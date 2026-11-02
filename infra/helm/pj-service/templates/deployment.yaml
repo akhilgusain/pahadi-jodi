@@ -1,0 +1,24 @@
+{{- if not .Values.rollout.enabled }}
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: {{ include "pj.name" . }}
+  labels: {{- include "pj.labels" . | nindent 4 }}
+spec:
+  {{- if not (or .Values.hpa.enabled .Values.keda.enabled) }}
+  replicas: {{ .Values.replicaCount }}
+  {{- end }}
+  revisionHistoryLimit: 5
+  strategy:
+    type: RollingUpdate
+    rollingUpdate: {maxSurge: 25%, maxUnavailable: 0}
+  selector:
+    matchLabels: {{- include "pj.selector" . | nindent 6 }}
+  template:
+    metadata:
+      labels: {{- include "pj.labels" . | nindent 8 }}
+      annotations:
+        checksum/config: {{ toYaml .Values.config | sha256sum }}
+        prometheus.io/scrape: "false"
+    spec: {{- include "pj.podspec" . | nindent 6 }}
+{{- end }}

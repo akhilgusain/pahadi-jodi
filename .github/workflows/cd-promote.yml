@@ -1,0 +1,79 @@
+name: cd-promote
+# image-published (from ci-service)  -> bump dev (auto)
+# manual dispatch                      -> promote dev->staging->prod (prod behind environment approval)
+on:
+  repository_dispatch: {types: [image-published]}
+  workflow_dispatch:
+    inputs:
+      service: {description: service name, required: true}
+      tag: {description: image tag (git sha), required: true}
+      target: {description: target env, type: choice, options: [staging, prod], required: true}
+permissions: {contents: write, id-token: write, pull-requests: write}
+concurrency: {group: "promote-${{ github.event.client_payload.service || inputs.service }}", cancel-in-progress: false}
+jobs:
+  bump:
+    runs-on: ubuntu-latest
+    environment: ${{ github.event_name == 'workflow_dispatch' && inputs.target || 'dev' }}   # required reviewers on staging/prod
+    env:
+      SERVICE: ${{ github.event.client_payload.service || inputs.service }}
+      TAG: ${{ github.event.client_payload.tag || inputs.tag }}
+      TARGET: ${{ github.event_name == 'workflow_dispatch' && inputs.target || 'dev' }}
+    steps:
+      - uses: actions/checkout@v4
+        with: {token: "${{ secrets.GITOPS_PAT }}"}
+      - name: Verify image signature before promoting
+        uses: sigstore/cosign-installer@v3
+      - uses: aws-actions/configure-aws-credentials@v4
+        with: {role-to-assume: "${{ vars.AWS_CI_ROLE_ARN }}", aws-region: ap-south-1}
+      - run: |
+          cosign verify "${{ vars.ECR_REGISTRY }}/pahadi-jodi/$SERVICE:$TAG" \
+            --certificate-oidc-issuer https://token.actions.githubusercontent.com \
+            --certificate-identity-regexp '^https://github.com/pahadi-jodi/platform/.github/workflows/ci-service.yml@refs/heads/main$'
+      - name: Require previous env healthy on this tag (staging needs dev, prod needs staging)
+        if: env.TARGET != 'dev'
+        run: |
+          prev=$([ "$TARGET" = prod ] && echo staging || echo dev)
+          grep -q "tag: \"$TAG\"" infra/gitops/envs/$prev/$SERVICE.yaml || { echo "$TAG not deployed in $prev"; exit 1; }
+      - name: Bump image tag
+        run: |
+          f=infra/gitops/envs/$TARGET/$SERVICE.yaml
+          yq -i ".image.tag = \"$TAG\"" "$f"
+          git config user.name pj-release-bot && git config user.email release-bot@pahadijodi.in
+          git add "$f" && git commit -m "deploy($TARGET): $SERVICE -> $TAG" && git push
+  smoke:
+    needs: bump
+    runs-on: ubuntu-latest
+    permissions: {contents: write}
+    env:
+      TARGET: ${{ github.event_name == 'workflow_dispatch' && inputs.target || 'dev' }}
+      SERVICE: ${{ github.event.client_payload.service || inputs.service }}
+      TAG: ${{ github.event.client_payload.tag || inputs.tag }}
+    steps:
+      - uses: actions/checkout@v4
+        with: {token: "${{ secrets.GITOPS_PAT }}"}
+      - name: Wait for Argo CD sync + health
+        run: |
+          curl -sSL -o argocd https://github.com/argoproj/argo-cd/releases/download/v2.12.6/argocd-linux-amd64 && chmod +x argocd
+          ./argocd login ${{ vars.ARGOCD_SERVER }} --auth-token ${{ secrets.ARGOCD_TOKEN }} --grpc-web
+          app=$TARGET-$SERVICE
+          if [ "$TARGET" = prod ]; then ./argocd app sync $app --grpc-web; fi    # prod is manual-sync
+          ./argocd app wait $app --health --timeout 900 --grpc-web
+      - uses: actions/setup-node@v4
+        with: {node-version: 22}
+      - name: Smoke tests (API contract + critical journeys)
+        run: |
+          base=$([ "$TARGET" = prod ] && echo https://api.pahadijodi.in || echo https://api.${{ vars[format('DOMAIN_{0}', env.TARGET)] }})
+          curl -fsS "$base/actuator/health" 
+          npx newman run tests/smoke/pj-smoke.postman_collection.json --env-var base=$base --env-var token=${{ secrets.SMOKE_TOKEN }}
+          npx k6 run --vus 5 --duration 1m -e BASE=$base tests/load/smoke.js || true
+      - name: Roll back on failure (revert the gitops bump commit)
+        if: failure()
+        run: |
+          git fetch origin main && git checkout -B main origin/main
+          c=$(git log --format=%H -n1 --grep="^deploy($TARGET): $SERVICE -> $TAG")
+          [ -n "$c" ] && git revert --no-edit "$c" && git push origin main || echo "no bump commit found"
+      - name: Notify
+        if: always()
+        env: {WEBHOOK: "${{ secrets.SLACK_DEPLOY_WEBHOOK }}", STATUS: "${{ job.status }}"}
+        run: |
+          curl -s -X POST -H 'Content-type: application/json' --data "{\"text\":\"$TARGET $SERVICE $TAG: $STATUS\"}" "$WEBHOOK"

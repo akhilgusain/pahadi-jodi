@@ -1,0 +1,28 @@
+apiVersion: argoproj.io/v1alpha1
+kind: ApplicationSet
+metadata: {name: platform-addons, namespace: argocd}
+spec:
+  goTemplate: true
+  generators:
+    - list:
+        elements:
+          - {name: cert-manager,     ns: cert-manager,     repo: https://charts.jetstack.io,                    chart: cert-manager,        ver: v1.16.1, wave: "-4"}
+          - {name: external-secrets, ns: external-secrets, repo: https://charts.external-secrets.io,            chart: external-secrets,    ver: 0.10.4,  wave: "-4"}
+          - {name: kyverno,          ns: kyverno,          repo: https://kyverno.github.io/kyverno,             chart: kyverno,             ver: 3.2.7,   wave: "-4"}
+          - {name: keda,             ns: keda,             repo: https://kedacore.github.io/charts,             chart: keda,                ver: 2.15.1,  wave: "-3"}
+          - {name: argo-rollouts,    ns: argo-rollouts,    repo: https://argoproj.github.io/argo-helm,          chart: argo-rollouts,       ver: 2.37.7,  wave: "-3"}
+          - {name: alb-controller,   ns: kube-system,      repo: https://aws.github.io/eks-charts,              chart: aws-load-balancer-controller, ver: 1.9.2, wave: "-3"}
+          - {name: kube-prometheus,  ns: observability,    repo: https://prometheus-community.github.io/helm-charts, chart: kube-prometheus-stack, ver: 65.1.1, wave: "-2"}
+          - {name: eck-operator,     ns: logging,          repo: https://helm.elastic.co,                       chart: eck-operator,        ver: 2.14.0,  wave: "-2"}
+  template:
+    metadata:
+      name: '{{.name}}'
+      annotations: {argocd.argoproj.io/sync-wave: '{{.wave}}'}
+    spec:
+      project: pahadi-jodi
+      source: {repoURL: '{{.repo}}', chart: '{{.chart}}', targetRevision: '{{.ver}}'}
+      destination: {server: https://kubernetes.default.svc, namespace: '{{.ns}}'}
+      syncPolicy:
+        automated: {prune: true, selfHeal: true}
+        syncOptions: [CreateNamespace=true, ServerSideApply=true]
+        retry: {limit: 5, backoff: {duration: 20s, factor: 2, maxDuration: 5m}}

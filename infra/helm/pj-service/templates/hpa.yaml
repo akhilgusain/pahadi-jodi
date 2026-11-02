@@ -1,0 +1,27 @@
+{{- if and .Values.hpa.enabled (not .Values.keda.enabled) }}
+apiVersion: autoscaling/v2
+kind: HorizontalPodAutoscaler
+metadata:
+  name: {{ include "pj.name" . }}
+  labels: {{- include "pj.labels" . | nindent 4 }}
+spec:
+  scaleTargetRef:
+    {{- if .Values.rollout.enabled }}
+    apiVersion: argoproj.io/v1alpha1
+    kind: Rollout
+    {{- else }}
+    apiVersion: apps/v1
+    kind: Deployment
+    {{- end }}
+    name: {{ include "pj.name" . }}
+  minReplicas: {{ .Values.hpa.minReplicas }}
+  maxReplicas: {{ .Values.hpa.maxReplicas }}
+  metrics:
+    - type: Resource
+      resource: {name: cpu, target: {type: Utilization, averageUtilization: {{ .Values.hpa.cpuUtilization }}}}
+    {{- if .Values.hpa.memoryUtilization }}
+    - type: Resource
+      resource: {name: memory, target: {type: Utilization, averageUtilization: {{ .Values.hpa.memoryUtilization }}}}
+    {{- end }}
+  behavior: {{- toYaml .Values.hpa.behavior | nindent 4 }}
+{{- end }}

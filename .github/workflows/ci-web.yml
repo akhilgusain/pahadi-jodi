@@ -1,0 +1,42 @@
+name: ci-web
+on:
+  pull_request: {paths: ["web/**"]}
+  push: {branches: [main], paths: ["web/**"]}
+permissions: {contents: read, id-token: write}
+concurrency: {group: "ci-web-${{ github.ref }}", cancel-in-progress: true}
+defaults: {run: {working-directory: web}}
+jobs:
+  test:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with: {node-version: 22, cache: npm, cache-dependency-path: web/package-lock.json}
+      - run: npm ci
+      - run: npm run lint && npm run typecheck
+      - run: npm test -- --coverage
+      - run: npm audit --audit-level=high --omit=dev
+      - run: npx playwright install --with-deps chromium && npm run test:e2e
+      - run: npm run build
+        env: {VITE_API_BASE: "https://api.stg.pahadijodi.in"}
+      - name: Lighthouse CI (PWA/perf budgets)
+        run: npx @lhci/cli autorun
+      - uses: actions/upload-artifact@v4
+        with: {name: web-dist, path: web/dist}
+  deploy:
+    if: github.ref == 'refs/heads/main'
+    needs: test
+    runs-on: ubuntu-latest
+    environment: web-staging
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/download-artifact@v4
+        with: {name: web-dist, path: web/dist}
+      - uses: aws-actions/configure-aws-credentials@v4
+        with: {role-to-assume: "${{ vars.AWS_WEB_DEPLOY_ROLE_ARN }}", aws-region: ap-south-1}
+      - name: Sync hashed assets (immutable) then index (no-cache)
+        run: |
+          aws s3 sync web/dist s3://${{ vars.WEB_BUCKET }} --delete --exclude index.html --exclude sw.js --exclude manifest.webmanifest --cache-control "public,max-age=31536000,immutable"
+          aws s3 cp web/dist/index.html s3://${{ vars.WEB_BUCKET }}/index.html --cache-control "no-cache"
+          aws s3 cp web/dist/sw.js s3://${{ vars.WEB_BUCKET }}/sw.js --cache-control "no-cache"
+          aws cloudfront create-invalidation --distribution-id ${{ vars.WEB_CF_ID }} --paths "/index.html" "/sw.js" "/manifest.webmanifest"

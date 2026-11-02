@@ -1,0 +1,27 @@
+# Layered on top of pj-service defaults; env overrides in infra/gitops/envs/<env>/profile-service.yaml
+nameOverride: profile-service
+image: {repository: 000000000000.dkr.ecr.ap-south-1.amazonaws.com/pahadi-jodi/profile-service}
+replicaCount: 4
+serviceAccount: {roleArn: ""}
+rollout: {enabled: true, analysisArgs: [{name: service, value: profile-service}]}
+resources:
+  requests: {cpu: "1", memory: 1Gi}
+  limits: {memory: 1536Mi}
+hpa: {minReplicas: 4, maxReplicas: 40, cpuUtilization: 60}
+ingress: {enabled: false}
+config:
+  SPRING_DATASOURCE_URL: jdbc:postgresql://pj-prod-tier1-profile.proxy-xxxx.ap-south-1.rds.amazonaws.com:5432/profile?sslmode=require
+  SPRING_DATASOURCE_HIKARI_MAXIMUM_POOL_SIZE: "20"
+  SPRING_DATA_REDIS_CLUSTER_NODES: clustercfg.pj-prod.xxxx.aps1.cache.amazonaws.com:6379
+  SPRING_DATA_REDIS_SSL_ENABLED: "true"
+  SPRING_KAFKA_BOOTSTRAP_SERVERS: b-1.pj-prod.xxxx.kafka.ap-south-1.amazonaws.com:9098
+  SPRING_KAFKA_PROPERTIES_SECURITY_PROTOCOL: SASL_SSL
+  SPRING_KAFKA_PROPERTIES_SASL_MECHANISM: AWS_MSK_IAM
+  SPRING_KAFKA_PROPERTIES_SASL_JAAS_CONFIG: software.amazon.msk.auth.iam.IAMLoginModule required;
+  SPRING_KAFKA_PROPERTIES_SASL_CLIENT_CALLBACK_HANDLER_CLASS: software.amazon.msk.auth.iam.IAMClientCallbackHandler
+  PJ_CACHE_PROFILE_TTL: 10m
+externalSecret:
+  data:
+    - {secretKey: SPRING_DATASOURCE_USERNAME, remoteRef: {key: pj-prod/profile-service/db, property: username}}
+    - {secretKey: SPRING_DATASOURCE_PASSWORD, remoteRef: {key: pj-prod/profile-service/db, property: password}}
+    - {secretKey: SPRING_DATA_REDIS_PASSWORD, remoteRef: {key: pj-prod/redis-auth, property: password}}

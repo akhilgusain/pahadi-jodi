@@ -1,0 +1,36 @@
+{{- if .Values.keda.enabled }}
+apiVersion: keda.sh/v1alpha1
+kind: ScaledObject
+metadata:
+  name: {{ include "pj.name" . }}
+  labels: {{- include "pj.labels" . | nindent 4 }}
+spec:
+  scaleTargetRef:
+    {{- if .Values.rollout.enabled }}
+    apiVersion: argoproj.io/v1alpha1
+    kind: Rollout
+    {{- end }}
+    name: {{ include "pj.name" . }}
+  minReplicaCount: {{ .Values.hpa.minReplicas }}
+  maxReplicaCount: {{ .Values.hpa.maxReplicas }}
+  cooldownPeriod: 300
+  triggers:
+    - type: cpu
+      metricType: Utilization
+      metadata: {value: {{ .Values.hpa.cpuUtilization | quote }}}
+    {{- with .Values.keda.kafka }}
+    - type: kafka
+      metadata:
+        bootstrapServers: {{ .bootstrap | quote }}
+        consumerGroup: {{ .consumerGroup | quote }}
+        topic: {{ .topic | quote }}
+        lagThreshold: {{ .lagThreshold | default 500 | quote }}
+        activationLagThreshold: "10"
+        offsetResetPolicy: latest
+        sasl: aws_msk_iam
+        tls: enable
+        awsRegion: ap-south-1
+        awsAuthorization: pod   # IRSA
+    {{- end }}
+    {{- with .Values.keda.extraTriggers }}{{ toYaml . | nindent 4 }}{{- end }}
+{{- end }}

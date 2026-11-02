@@ -1,0 +1,12 @@
+{
+  "expo": {
+    "name": "Pahadi Jodi",
+    "slug": "pahadi-jodi",
+    "scheme": "pahadijodi",
+    "version": "0.1.0",
+    "orientation": "portrait",
+    "ios": { "bundleIdentifier": "in.pahadijodi.app" },
+    "android": { "package": "in.pahadijodi.app" },
+    "extra": { "apiUrl": "http://10.0.2.2:8080" }
+  }
+}

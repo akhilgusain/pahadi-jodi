@@ -1,0 +1,44 @@
+# WebSocket-heavy, stateful-ish connections: sticky LB, long idle timeout, slow scale-down, lag-based scaling.
+nameOverride: chat-service
+image: {repository: 000000000000.dkr.ecr.ap-south-1.amazonaws.com/pahadi-jodi/chat-service}
+replicaCount: 6
+nodePool: general
+resources:
+  requests: {cpu: "1", memory: 2Gi}
+  limits: {memory: 3Gi}
+javaOpts: "-XX:MaxRAMPercentage=65 -XX:+UseZGC -XX:+ZGenerational -Dreactor.netty.ioWorkerCount=4"
+terminationGracePeriodSeconds: 120      # drain sockets; clients auto-reconnect w/ jitter
+lifecycle: {preStopSleepSeconds: 30}
+service:
+  sessionAffinity: ClientIP
+ingress:
+  enabled: true
+  host: chat.internal.pahadijodi.in
+  paths: ["/ws", "/api/v1/chat"]
+  websocket: true
+rollout:
+  enabled: false                         # sockets: use rolling w/ long drain, not canary %
+hpa: {enabled: false, minReplicas: 6, maxReplicas: 120, cpuUtilization: 55}
+keda:
+  enabled: true
+  kafka:
+    bootstrap: b-1.pj-prod.xxxx.kafka.ap-south-1.amazonaws.com:9098
+    consumerGroup: chat-service-delivery
+    topic: pj.chat.message-sent.v1
+    lagThreshold: 800
+  extraTriggers:
+    - type: prometheus
+      metadata:
+        serverAddress: http://prometheus-operated.observability:9090
+        query: sum(pj_chat_ws_sessions_active{service="chat-service"}) / count(up{service="chat-service"})
+        threshold: "8000"                # ~8k live sockets per pod
+pdb: {maxUnavailable: 1}
+config:
+  PJ_CHAT_WS_HEARTBEAT: 25s
+  PJ_CHAT_PRESENCE_TTL: 60s
+  SPRING_DATA_REDIS_SSL_ENABLED: "true"
+  PJ_CHAT_RELAY: redis-streams           # cross-pod fanout; or kafka
+externalSecret:
+  data:
+    - {secretKey: SPRING_DATASOURCE_PASSWORD, remoteRef: {key: pj-prod/chat-service/db, property: password}}
+    - {secretKey: SPRING_DATA_REDIS_PASSWORD, remoteRef: {key: pj-prod/redis-auth, property: password}}

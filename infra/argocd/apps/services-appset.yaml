@@ -1,0 +1,50 @@
+# One Application per (env x service). Image tag lives in infra/gitops/envs/<env>/<service>.yaml and is
+# bumped by the cd-promote workflow. dev/staging auto-sync; prod requires manual sync (approval gate).
+apiVersion: argoproj.io/v1alpha1
+kind: ApplicationSet
+metadata: {name: pj-services, namespace: argocd}
+spec:
+  goTemplate: true
+  goTemplateOptions: ["missingkey=error"]
+  generators:
+    - matrix:
+        generators:
+          - list:
+              elements:
+                - {env: dev,     cluster: https://kubernetes.default.svc, auto: "true"}
+                - {env: staging, cluster: https://kubernetes.default.svc, auto: "true"}
+                - {env: prod,    cluster: https://kubernetes.default.svc, auto: "false"}
+          - git:
+              repoURL: https://github.com/pahadi-jodi/platform.git
+              revision: main
+              files: [{path: "infra/gitops/services/*.json"}]   # {"name":"profile-service","namespace":"pj-apps"}
+  template:
+    metadata:
+      name: '{{.env}}-{{.name}}'
+      labels: {pj/env: '{{.env}}'}
+    spec:
+      project: pahadi-jodi
+      sources:
+        - repoURL: https://github.com/pahadi-jodi/platform.git
+          targetRevision: main
+          path: infra/helm/pj-service
+          helm:
+            releaseName: '{{.name}}'
+            valueFiles:
+              - ../values/{{.name}}.values.yaml
+              - $gitops/infra/gitops/envs/{{.env}}/{{.name}}.yaml
+        - repoURL: https://github.com/pahadi-jodi/platform.git
+          targetRevision: main
+          ref: gitops
+      destination: {server: '{{.cluster}}', namespace: '{{.namespace}}'}
+      ignoreDifferences:
+        - {group: apps, kind: Deployment, jsonPointers: [/spec/replicas]}
+        - {group: argoproj.io, kind: Rollout, jsonPointers: [/spec/replicas]}
+  templatePatch: |
+    spec:
+      syncPolicy:
+        {{- if eq .auto "true" }}
+        automated: {prune: true, selfHeal: true}
+        {{- end }}
+        syncOptions: [CreateNamespace=false, ServerSideApply=true, PruneLast=true, RespectIgnoreDifferences=true]
+        retry: {limit: 3, backoff: {duration: 15s, factor: 2, maxDuration: 3m}}

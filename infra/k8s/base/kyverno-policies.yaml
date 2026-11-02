@@ -1,0 +1,67 @@
+apiVersion: kyverno.io/v1
+kind: ClusterPolicy
+metadata: {name: pj-require-signed-images}
+spec:
+  validationFailureAction: Enforce
+  webhookTimeoutSeconds: 15
+  rules:
+    - name: verify-cosign
+      match: {any: [{resources: {kinds: [Pod], namespaces: ["pj-*"]}}]}
+      verifyImages:
+        - imageReferences: ["*.dkr.ecr.ap-south-1.amazonaws.com/pahadi-jodi/*"]
+          mutateDigest: true
+          attestors:
+            - entries:
+                - keyless:
+                    issuer: https://token.actions.githubusercontent.com
+                    subject: https://github.com/pahadi-jodi/platform/.github/workflows/ci-service.yml@refs/heads/main
+                    rekor: {url: https://rekor.sigstore.dev}
+---
+apiVersion: kyverno.io/v1
+kind: ClusterPolicy
+metadata: {name: pj-pod-hardening}
+spec:
+  validationFailureAction: Enforce
+  background: true
+  rules:
+    - name: no-latest-tag
+      match: {any: [{resources: {kinds: [Pod], namespaces: ["pj-*"]}}]}
+      validate:
+        message: "Use immutable image tags."
+        pattern: {spec: {containers: [{image: "!*:latest"}]}}
+    - name: require-resources
+      match: {any: [{resources: {kinds: [Pod], namespaces: ["pj-*"]}}]}
+      validate:
+        message: "CPU/memory requests and memory limit required."
+        pattern: {spec: {containers: [{resources: {requests: {cpu: "?*", memory: "?*"}, limits: {memory: "?*"}}}]}}
+    - name: no-privileged-no-hostns
+      match: {any: [{resources: {kinds: [Pod], namespaces: ["pj-*"]}}]}
+      validate:
+        message: "Privileged containers and host namespaces are forbidden."
+        pattern:
+          spec:
+            =(hostNetwork): false
+            =(hostPID): false
+            containers: [{securityContext: {=(privileged): false, allowPrivilegeEscalation: false, readOnlyRootFilesystem: true}}]
+    - name: ecr-only
+      match: {any: [{resources: {kinds: [Pod], namespaces: ["pj-*"]}}]}
+      validate:
+        message: "Images must come from the project ECR."
+        pattern: {spec: {containers: [{image: "*.dkr.ecr.ap-south-1.amazonaws.com/pahadi-jodi/*"}]}}
+    - name: require-labels
+      match: {any: [{resources: {kinds: [Deployment, Rollout], namespaces: ["pj-*"]}}]}
+      validate:
+        message: "app.kubernetes.io/name and pj/env labels required."
+        pattern: {metadata: {labels: {app.kubernetes.io/name: "?*", pj/env: "?*"}}}
+---
+apiVersion: kyverno.io/v1
+kind: ClusterPolicy
+metadata: {name: pj-default-pdb-hint}
+spec:
+  validationFailureAction: Audit
+  rules:
+    - name: replicas-ge-2-in-prod
+      match: {any: [{resources: {kinds: [Deployment], namespaces: ["pj-*"]}}]}
+      validate:
+        message: "Run >=2 replicas."
+        pattern: {spec: {replicas: ">=2"}}

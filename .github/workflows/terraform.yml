@@ -1,0 +1,65 @@
+name: terraform
+on:
+  pull_request: {paths: ["infra/terraform/**"]}
+  push: {branches: [main], paths: ["infra/terraform/**"]}
+permissions: {contents: read, id-token: write, pull-requests: write}
+concurrency: {group: "tf-${{ github.ref }}", cancel-in-progress: false}
+jobs:
+  validate:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: hashicorp/setup-terraform@v3
+        with: {terraform_version: 1.9.8}
+      - run: terraform fmt -check -recursive infra/terraform
+      - uses: aquasecurity/tfsec-action@v1.0.3
+        with: {working_directory: infra/terraform}
+      - uses: bridgecrewio/checkov-action@v12
+        with: {directory: infra/terraform, soft_fail: false, quiet: true}
+  plan:
+    needs: validate
+    runs-on: ubuntu-latest
+    strategy:
+      fail-fast: false
+      matrix: {env: [dev, staging, prod]}
+    steps:
+      - uses: actions/checkout@v4
+      - uses: hashicorp/setup-terraform@v3
+        with: {terraform_version: 1.9.8, terraform_wrapper: false}
+      - uses: aws-actions/configure-aws-credentials@v4
+        with: {role-to-assume: "${{ vars[format('TF_PLAN_ROLE_{0}', matrix.env)] }}", aws-region: ap-south-1}
+      - working-directory: infra/terraform/envs/${{ matrix.env }}
+        run: |
+          terraform init -input=false
+          terraform plan -input=false -lock-timeout=5m -var-file=${{ matrix.env }}.tfvars -out=tfplan
+          terraform show -no-color tfplan > plan.txt
+      - uses: infracost/actions/setup@v3
+        with: {api-key: "${{ secrets.INFRACOST_API_KEY }}"}
+      - run: infracost breakdown --path infra/terraform/envs/${{ matrix.env }}/tfplan --format table > cost.txt || true
+      - uses: actions/upload-artifact@v4
+        with: {name: "plan-${{ matrix.env }}", path: "infra/terraform/envs/${{ matrix.env }}/{tfplan,plan.txt,cost.txt}"}
+      - if: github.event_name == 'pull_request'
+        uses: marocchino/sticky-pull-request-comment@v2
+        with:
+          header: tf-${{ matrix.env }}
+          path: infra/terraform/envs/${{ matrix.env }}/plan.txt
+  apply:
+    if: github.ref == 'refs/heads/main' && github.event_name == 'push'
+    needs: plan
+    runs-on: ubuntu-latest
+    strategy:
+      max-parallel: 1
+      matrix: {env: [dev, staging, prod]}   # sequential promotion
+    environment: tf-${{ matrix.env }}        # prod/staging env has required reviewers (approval gate)
+    steps:
+      - uses: actions/checkout@v4
+      - uses: hashicorp/setup-terraform@v3
+        with: {terraform_version: 1.9.8}
+      - uses: aws-actions/configure-aws-credentials@v4
+        with: {role-to-assume: "${{ vars[format('TF_APPLY_ROLE_{0}', matrix.env)] }}", aws-region: ap-south-1}
+      - uses: actions/download-artifact@v4
+        with: {name: "plan-${{ matrix.env }}", path: "infra/terraform/envs/${{ matrix.env }}"}
+      - working-directory: infra/terraform/envs/${{ matrix.env }}
+        run: |
+          terraform init -input=false
+          terraform apply -input=false -lock-timeout=10m tfplan

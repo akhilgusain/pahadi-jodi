@@ -1,0 +1,13 @@
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: {{ include "pj.name" . }}
+  labels: {{- include "pj.labels" . | nindent 4 }}
+data:
+  SERVER_PORT: {{ .Values.port | quote }}
+  MANAGEMENT_SERVER_PORT: {{ .Values.managementPort | quote }}
+  SERVER_SHUTDOWN: graceful
+  SPRING_LIFECYCLE_TIMEOUT_PER_SHUTDOWN_PHASE: 30s
+  {{- range $k, $v := .Values.config }}
+  {{ $k }}: {{ $v | quote }}
+  {{- end }}

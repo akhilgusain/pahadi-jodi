@@ -1,0 +1,4 @@
+nameOverride: api-gateway
+image: {repository: 000000000000.dkr.ecr.ap-south-1.amazonaws.com/pahadi-jodi/api-gateway}
+ingress: {enabled: true, host: api.pahadijodi.in, paths: ["/"]}
+rollout: {enabled: true, analysisArgs: [{name: service, value: api-gateway}]}

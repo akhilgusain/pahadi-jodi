@@ -1,0 +1,45 @@
+{{- if .Values.rollout.enabled }}
+apiVersion: argoproj.io/v1alpha1
+kind: Rollout
+metadata:
+  name: {{ include "pj.name" . }}
+  labels: {{- include "pj.labels" . | nindent 4 }}
+spec:
+  {{- if not (or .Values.hpa.enabled .Values.keda.enabled) }}
+  replicas: {{ .Values.replicaCount }}
+  {{- end }}
+  revisionHistoryLimit: 5
+  selector:
+    matchLabels: {{- include "pj.selector" . | nindent 6 }}
+  strategy:
+    canary:
+      canaryService: {{ include "pj.name" . }}-canary
+      stableService: {{ include "pj.name" . }}
+      trafficRouting:
+        alb:
+          ingress: {{ include "pj.name" . }}
+          servicePort: {{ .Values.service.port }}
+      maxSurge: 25%
+      maxUnavailable: 0
+      steps: {{- toYaml .Values.rollout.steps | nindent 8 }}
+      {{- with .Values.rollout.analysisArgs }}
+      analysis:
+        args: {{- toYaml . | nindent 10 }}
+      {{- end }}
+  template:
+    metadata:
+      labels: {{- include "pj.labels" . | nindent 8 }}
+      annotations:
+        checksum/config: {{ toYaml .Values.config | sha256sum }}
+    spec: {{- include "pj.podspec" . | nindent 6 }}
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: {{ include "pj.name" . }}-canary
+  labels: {{- include "pj.labels" . | nindent 4 }}
+spec:
+  type: ClusterIP
+  selector: {{- include "pj.selector" . | nindent 4 }}
+  ports: [{name: http, port: {{ .Values.service.port }}, targetPort: http}]
+{{- end }}

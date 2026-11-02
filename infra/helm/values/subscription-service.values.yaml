@@ -1,0 +1,3 @@
+nameOverride: subscription-service
+image: {repository: 000000000000.dkr.ecr.ap-south-1.amazonaws.com/pahadi-jodi/subscription-service}
+rollout: {enabled: true, analysisArgs: [{name: service, value: subscription-service}]}

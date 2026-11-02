@@ -1,0 +1,25 @@
+# Public entrypoint: ALB (WAF-attached) -> api-gateway. Internal services stay ClusterIP/internal ALB.
+apiVersion: networking.k8s.io/v1
+kind: Ingress
+metadata:
+  name: public-edge
+  namespace: pj-gateway
+  annotations:
+    alb.ingress.kubernetes.io/scheme: internet-facing
+    alb.ingress.kubernetes.io/target-type: ip
+    alb.ingress.kubernetes.io/listen-ports: '[{"HTTP":80},{"HTTPS":443}]'
+    alb.ingress.kubernetes.io/ssl-redirect: "443"
+    alb.ingress.kubernetes.io/ssl-policy: ELBSecurityPolicy-TLS13-1-2-2021-06
+    alb.ingress.kubernetes.io/certificate-arn: arn:aws:acm:ap-south-1:000000000000:certificate/REPLACE
+    alb.ingress.kubernetes.io/wafv2-acl-arn: arn:aws:wafv2:ap-south-1:000000000000:regional/webacl/pj-prod-alb/REPLACE
+    alb.ingress.kubernetes.io/healthcheck-path: /actuator/health/readiness
+    alb.ingress.kubernetes.io/healthcheck-port: "8081"
+    alb.ingress.kubernetes.io/load-balancer-attributes: idle_timeout.timeout_seconds=3600,routing.http.drop_invalid_header_fields.enabled=true,deletion_protection.enabled=true
+    alb.ingress.kubernetes.io/group.name: pj-public
+spec:
+  ingressClassName: alb
+  rules:
+    - host: api.pahadijodi.in
+      http:
+        paths:
+          - {path: /, pathType: Prefix, backend: {service: {name: api-gateway, port: {number: 80}}}}

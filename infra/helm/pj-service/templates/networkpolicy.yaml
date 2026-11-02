@@ -1,0 +1,39 @@
+{{- if .Values.networkPolicy.enabled }}
+apiVersion: networking.k8s.io/v1
+kind: NetworkPolicy
+metadata:
+  name: {{ include "pj.name" . }}
+spec:
+  podSelector:
+    matchLabels: {{- include "pj.selector" . | nindent 6 }}
+  policyTypes: [Ingress, Egress]
+  ingress:
+    - from:
+        - namespaceSelector: {matchLabels: {kubernetes.io/metadata.name: observability}}
+      ports: [{port: {{ .Values.managementPort }}}]
+    - from:
+        - namespaceSelector: {matchLabels: {kubernetes.io/metadata.name: pj-gateway}}
+        {{- with .Values.networkPolicy.ingressFrom }}{{ toYaml . | nindent 8 }}{{- end }}
+      ports: [{port: {{ .Values.port }}}]
+  egress:
+    - to:   # DNS
+        - namespaceSelector: {matchLabels: {kubernetes.io/metadata.name: kube-system}}
+      ports: [{port: 53, protocol: UDP}, {port: 53, protocol: TCP}]
+    - to:   # OTLP
+        - namespaceSelector: {matchLabels: {kubernetes.io/metadata.name: observability}}
+    - to:   # peer services (east-west via mesh/mTLS) 
+        - namespaceSelector: {matchExpressions: [{key: kubernetes.io/metadata.name, operator: In, values: [pj-core, pj-apps, pj-gateway]}]}
+    - to:   # AWS data plane (Aurora/MSK/Redis/VPC endpoints) – data subnets + endpoints, never 0.0.0.0/0 on :22 etc.
+        - ipBlock: {cidr: 10.0.0.0/8}
+      ports:
+        {{- if .Values.networkPolicy.allowDb }}- {port: 5432}{{ end }}
+        {{- if .Values.networkPolicy.allowRedis }}
+        - {port: 6379}{{ end }}
+        {{- if .Values.networkPolicy.allowKafka }}
+        - {port: 9098}{{ end }}
+        - {port: 443}
+    {{- range .Values.networkPolicy.egressCidrs }}
+    - to: [{ipBlock: {cidr: {{ . }}}}]
+      ports: [{port: 443}]
+    {{- end }}
+{{- end }}

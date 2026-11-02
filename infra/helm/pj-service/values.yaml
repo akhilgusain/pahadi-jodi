@@ -1,0 +1,103 @@
+nameOverride: ""
+image:
+  repository: ""          # <acct>.dkr.ecr.ap-south-1.amazonaws.com/pahadi-jodi/<service>
+  tag: ""                 # set by cd-promote (immutable git sha)
+  pullPolicy: IfNotPresent
+replicaCount: 3
+port: 8080
+managementPort: 8081
+grpcPort: null
+env: dev
+profile: prod             # Spring profile
+javaOpts: "-XX:MaxRAMPercentage=70 -XX:+UseZGC -XX:+ZGenerational -XX:TieredStopAtLevel=4 -Djava.security.egd=file:/dev/urandom"
+config: {}                # rendered into ConfigMap -> env
+extraEnv: []
+externalSecret:
+  enabled: true
+  store: aws-secrets-manager
+  refreshInterval: 1h
+  data: []                # - {secretKey: DB_PASSWORD, remoteRef: {key: pj-prod/x, property: password}}
+serviceAccount:
+  create: true
+  name: ""
+  roleArn: ""             # IRSA
+resources:
+  requests: {cpu: 500m, memory: 768Mi}
+  limits: {memory: 1Gi}   # no CPU limit (avoid CFS throttling)
+probes:
+  startup:   {path: /actuator/health/liveness,  failureThreshold: 30, periodSeconds: 2}
+  liveness:  {path: /actuator/health/liveness,  periodSeconds: 10, failureThreshold: 3}
+  readiness: {path: /actuator/health/readiness, periodSeconds: 5,  failureThreshold: 3}
+lifecycle:
+  preStopSleepSeconds: 15
+terminationGracePeriodSeconds: 45
+podSecurityContext:
+  runAsNonRoot: true
+  runAsUser: 65532
+  runAsGroup: 65532
+  fsGroup: 65532
+  seccompProfile: {type: RuntimeDefault}
+containerSecurityContext:
+  allowPrivilegeEscalation: false
+  readOnlyRootFilesystem: true
+  capabilities: {drop: [ALL]}
+topologySpread:
+  enabled: true
+  maxSkew: 1
+nodeSelector: {}
+tolerations: []
+affinity: {}
+nodePool: general          # Karpenter pool label pj/pool
+hpa:
+  enabled: true
+  minReplicas: 3
+  maxReplicas: 30
+  cpuUtilization: 65
+  memoryUtilization: null
+  behavior:
+    scaleDown: {stabilizationWindowSeconds: 300, policies: [{type: Percent, value: 20, periodSeconds: 60}]}
+    scaleUp:   {stabilizationWindowSeconds: 0, policies: [{type: Percent, value: 100, periodSeconds: 30}]}
+keda:
+  enabled: false           # when true, replaces HPA
+  kafka: {}                # {bootstrap, consumerGroup, topic, lagThreshold}
+  extraTriggers: []
+pdb:
+  enabled: true
+  maxUnavailable: 1
+service:
+  type: ClusterIP
+  port: 80
+  sessionAffinity: None
+  annotations: {}
+ingress:
+  enabled: false
+  className: alb
+  host: ""
+  paths: ["/"]
+  annotations: {}
+  websocket: false
+rollout:
+  enabled: false           # true => Argo Rollouts canary instead of Deployment
+  steps:
+    - setWeight: 5
+    - pause: {duration: 5m}
+    - analysis: {templates: [{templateName: pj-success-rate}, {templateName: pj-p95-latency}]}
+    - setWeight: 25
+    - pause: {duration: 10m}
+    - setWeight: 50
+    - pause: {duration: 10m}
+    - setWeight: 100
+  analysisArgs: []
+networkPolicy:
+  enabled: true
+  ingressFrom: []          # list of namespaceSelector/podSelector peers
+  egressCidrs: []
+  allowKafka: true
+  allowDb: true
+  allowRedis: true
+metrics:
+  serviceMonitor: {enabled: true, interval: 30s, path: /actuator/prometheus}
+otel:
+  enabled: true
+  endpoint: http://otel-collector.observability:4317
+  samplingRatio: "0.1"

@@ -1,0 +1,3 @@
+nameOverride: media-service
+image: {repository: 000000000000.dkr.ecr.ap-south-1.amazonaws.com/pahadi-jodi/media-service}
+rollout: {enabled: true, analysisArgs: [{name: service, value: media-service}]}

@@ -1,0 +1,49 @@
+name: ci-mobile
+on:
+  pull_request: {paths: ["mobile/**"]}
+  push:
+    branches: [main]
+    paths: ["mobile/**"]
+    tags: ["mobile-v*"]
+permissions: {contents: read}
+defaults: {run: {working-directory: mobile}}
+jobs:
+  test:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with: {node-version: 22, cache: npm, cache-dependency-path: mobile/package-lock.json}
+      - run: npm ci
+      - run: npm run lint && npx tsc --noEmit && npm test -- --coverage
+      - run: npx expo-doctor
+  preview:
+    if: github.event_name == 'pull_request'
+    needs: test
+    runs-on: ubuntu-latest
+    permissions: {contents: read, pull-requests: write}
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with: {node-version: 22, cache: npm, cache-dependency-path: mobile/package-lock.json}
+      - uses: expo/expo-github-action@v8
+        with: {eas-version: latest, token: "${{ secrets.EXPO_TOKEN }}"}
+      - run: npm ci
+      - uses: expo/expo-github-action/preview@v8      # EAS Update preview channel comment on PR
+        with: {command: "eas update --auto --branch pr-${{ github.event.number }}", working-directory: mobile}
+  build:
+    if: startsWith(github.ref, 'refs/tags/mobile-v')
+    needs: test
+    runs-on: ubuntu-latest
+    environment: mobile-release
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with: {node-version: 22, cache: npm, cache-dependency-path: mobile/package-lock.json}
+      - uses: expo/expo-github-action@v8
+        with: {eas-version: latest, token: "${{ secrets.EXPO_TOKEN }}"}
+      - run: npm ci
+      - run: eas build --platform all --profile production --non-interactive --no-wait
+      - run: eas submit --platform all --profile production --latest --non-interactive --no-wait   # TestFlight / Play internal track; staged rollout in console
+      - name: OTA (JS-only) channel
+        run: eas update --branch production --message "${{ github.sha }}" --non-interactive

@@ -1,0 +1,79 @@
+apiVersion: v1
+kind: ResourceQuota
+metadata: {name: compute, namespace: pj-gateway}
+spec:
+  hard: {requests.cpu: "40", requests.memory: 80Gi, limits.memory: 160Gi, pods: "200"}
+---
+apiVersion: v1
+kind: LimitRange
+metadata: {name: defaults, namespace: pj-gateway}
+spec:
+  limits:
+    - type: Container
+      defaultRequest: {cpu: 100m, memory: 256Mi}
+      default: {memory: 512Mi}
+      max: {cpu: "4", memory: 8Gi}
+---
+apiVersion: v1
+kind: ResourceQuota
+metadata: {name: compute, namespace: pj-core}
+spec:
+  hard: {requests.cpu: "120", requests.memory: 240Gi, limits.memory: 480Gi, pods: "500"}
+---
+apiVersion: v1
+kind: LimitRange
+metadata: {name: defaults, namespace: pj-core}
+spec:
+  limits:
+    - type: Container
+      defaultRequest: {cpu: 100m, memory: 256Mi}
+      default: {memory: 512Mi}
+      max: {cpu: "4", memory: 8Gi}
+---
+apiVersion: v1
+kind: ResourceQuota
+metadata: {name: compute, namespace: pj-apps}
+spec:
+  hard: {requests.cpu: "200", requests.memory: 400Gi, limits.memory: 800Gi, pods: "800"}
+---
+apiVersion: v1
+kind: LimitRange
+metadata: {name: defaults, namespace: pj-apps}
+spec:
+  limits:
+    - type: Container
+      defaultRequest: {cpu: 100m, memory: 256Mi}
+      default: {memory: 512Mi}
+      max: {cpu: "4", memory: 8Gi}
+---
+apiVersion: v1
+kind: ResourceQuota
+metadata: {name: compute, namespace: pj-ai}
+spec:
+  hard: {requests.cpu: "60", requests.memory: 160Gi, limits.memory: 320Gi, pods: "300"}
+---
+apiVersion: v1
+kind: LimitRange
+metadata: {name: defaults, namespace: pj-ai}
+spec:
+  limits:
+    - type: Container
+      defaultRequest: {cpu: 100m, memory: 256Mi}
+      default: {memory: 512Mi}
+      max: {cpu: "4", memory: 8Gi}
+---
+apiVersion: v1
+kind: ResourceQuota
+metadata: {name: compute, namespace: pj-data}
+spec:
+  hard: {requests.cpu: "40", requests.memory: 100Gi, limits.memory: 200Gi, pods: "200"}
+---
+apiVersion: v1
+kind: LimitRange
+metadata: {name: defaults, namespace: pj-data}
+spec:
+  limits:
+    - type: Container
+      defaultRequest: {cpu: 100m, memory: 256Mi}
+      default: {memory: 512Mi}
+      max: {cpu: "4", memory: 8Gi}

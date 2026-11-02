@@ -1,0 +1,132 @@
+name: ci-service
+on:
+  pull_request:
+    paths: ["services/**", "libs/**", "pom.xml", ".github/workflows/ci-service.yml"]
+  push:
+    branches: [main]
+    paths: ["services/**", "libs/**", "pom.xml"]
+permissions: {contents: read}
+concurrency: {group: "ci-service-${{ github.ref }}", cancel-in-progress: true}
+env:
+  AWS_REGION: ap-south-1
+  ECR_REGISTRY: ${{ vars.ECR_REGISTRY }}   # <acct>.dkr.ecr.ap-south-1.amazonaws.com
+jobs:
+  detect:
+    runs-on: ubuntu-latest
+    outputs: {services: "${{ steps.f.outputs.changes }}"}
+    steps:
+      - uses: actions/checkout@v4
+      - id: f
+        uses: dorny/paths-filter@v3
+        with:
+          filters: |
+            api-gateway: ['services/api-gateway/**','libs/**']
+            identity-service: ['services/identity-service/**','libs/**']
+            user-service: ['services/user-service/**','libs/**']
+            profile-service: ['services/profile-service/**','libs/**']
+            matchmaking-service: ['services/matchmaking-service/**','libs/**']
+            search-service: ['services/search-service/**','libs/**']
+            chat-service: ['services/chat-service/**','libs/**']
+            notification-service: ['services/notification-service/**','libs/**']
+            subscription-service: ['services/subscription-service/**','libs/**']
+            payment-service: ['services/payment-service/**','libs/**']
+            ai-recommendation-service: ['services/ai-recommendation-service/**','libs/**']
+            media-service: ['services/media-service/**','libs/**']
+            moderation-service: ['services/moderation-service/**','libs/**']
+            horoscope-service: ['services/horoscope-service/**','libs/**']
+            analytics-service: ['services/analytics-service/**','libs/**']
+            admin-service: ['services/admin-service/**','libs/**']
+            fraud-detection-service: ['services/fraud-detection-service/**','libs/**']
+  secrets-scan:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with: {fetch-depth: 0}
+      - uses: gitleaks/gitleaks-action@v2
+        env: {GITHUB_TOKEN: "${{ secrets.GITHUB_TOKEN }}"}
+  build:
+    needs: detect
+    if: needs.detect.outputs.services != '[]'
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    permissions: {contents: read, id-token: write, security-events: write, packages: read}
+    strategy:
+      fail-fast: false
+      matrix: {service: "${{ fromJSON(needs.detect.outputs.services) }}"}
+    steps:
+      - uses: actions/checkout@v4
+        with: {fetch-depth: 0}   # Sonar blame
+      - uses: actions/setup-java@v4
+        with: {distribution: temurin, java-version: 21, cache: maven}
+      - name: Build, unit + integration tests (Testcontainers needs Docker; available on runner)
+        run: mvn -B -ntp -pl services/${{ matrix.service }} -am verify -Pcoverage
+        env: {TESTCONTAINERS_RYUK_DISABLED: "false"}
+      - name: OWASP dependency check
+        run: mvn -B -ntp -pl services/${{ matrix.service }} org.owasp:dependency-check-maven:check -DfailBuildOnCVSS=8 -DnvdApiKey=${{ secrets.NVD_API_KEY }}
+      - name: SonarCloud
+        uses: SonarSource/sonarcloud-github-action@v3
+        env: {SONAR_TOKEN: "${{ secrets.SONAR_TOKEN }}"}
+        with:
+          args: >
+            -Dsonar.projectKey=pahadi-jodi_${{ matrix.service }}
+            -Dsonar.organization=pahadi-jodi
+            -Dsonar.projectBaseDir=services/${{ matrix.service }}
+            -Dsonar.qualitygate.wait=true
+      - name: SBOM (CycloneDX)
+        run: mvn -B -ntp -pl services/${{ matrix.service }} org.cyclonedx:cyclonedx-maven-plugin:makeAggregateBom
+      - uses: docker/setup-buildx-action@v3
+      - uses: aws-actions/configure-aws-credentials@v4
+        with:
+          role-to-assume: ${{ vars.AWS_CI_ROLE_ARN }}
+          aws-region: ${{ env.AWS_REGION }}
+      - uses: aws-actions/amazon-ecr-login@v2
+      - name: Build image
+        uses: docker/build-push-action@v6
+        with:
+          context: services/${{ matrix.service }}
+          file: services/_template/Dockerfile
+          push: false
+          load: true
+          tags: ${{ env.ECR_REGISTRY }}/pahadi-jodi/${{ matrix.service }}:${{ github.sha }}
+          build-args: GIT_SHA=${{ github.sha }}
+          cache-from: type=gha,scope=${{ matrix.service }}
+          cache-to: type=gha,mode=max,scope=${{ matrix.service }}
+      - name: Trivy image scan
+        uses: aquasecurity/trivy-action@0.28.0
+        with:
+          image-ref: ${{ env.ECR_REGISTRY }}/pahadi-jodi/${{ matrix.service }}:${{ github.sha }}
+          severity: CRITICAL,HIGH
+          ignore-unfixed: true
+          exit-code: "1"
+          format: sarif
+          output: trivy.sarif
+      - uses: github/codeql-action/upload-sarif@v3
+        if: always()
+        with: {sarif_file: trivy.sarif}
+      - name: Push (main only)
+        if: github.ref == 'refs/heads/main'
+        id: push
+        uses: docker/build-push-action@v6
+        with:
+          context: services/${{ matrix.service }}
+          file: services/_template/Dockerfile
+          push: true
+          provenance: mode=max
+          sbom: true
+          tags: ${{ env.ECR_REGISTRY }}/pahadi-jodi/${{ matrix.service }}:${{ github.sha }}
+          build-args: GIT_SHA=${{ github.sha }}
+          cache-from: type=gha,scope=${{ matrix.service }}
+      - uses: sigstore/cosign-installer@v3
+        if: github.ref == 'refs/heads/main'
+      - name: Sign image (keyless, OIDC)
+        if: github.ref == 'refs/heads/main'
+        run: |
+          cosign sign --yes ${{ env.ECR_REGISTRY }}/pahadi-jodi/${{ matrix.service }}@${{ steps.push.outputs.digest }}
+          cosign attest --yes --type cyclonedx --predicate services/${{ matrix.service }}/target/bom.json \
+            ${{ env.ECR_REGISTRY }}/pahadi-jodi/${{ matrix.service }}@${{ steps.push.outputs.digest }}
+      - name: Trigger CD to dev
+        if: github.ref == 'refs/heads/main'
+        uses: peter-evans/repository-dispatch@v3
+        with:
+          event-type: image-published
+          client-payload: '{"service":"${{ matrix.service }}","tag":"${{ github.sha }}","digest":"${{ steps.push.outputs.digest }}"}'

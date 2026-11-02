@@ -1,0 +1,6 @@
+apiVersion: v2
+name: pj-service
+description: Generic chart for all Pahadi Jodi Spring Boot microservices
+type: application
+version: 1.4.0
+appVersion: "0.0.0"

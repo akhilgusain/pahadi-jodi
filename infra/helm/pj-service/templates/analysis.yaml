@@ -1,0 +1,3 @@
+{{- if .Values.rollout.enabled }}
+# Per-release AnalysisTemplates live cluster-wide in infra/k8s/base/rollouts-analysis.yaml
+{{- end }}

@@ -1,0 +1,45 @@
+server:
+  port: 8080
+spring:
+  application:
+    name: api-gateway
+  data:
+    redis:
+      host: ${REDIS_HOST:localhost}
+      port: 6379
+  security:
+    oauth2:
+      resourceserver:
+        jwt:
+          jwk-set-uri: ${PJ_JWKS_URI:http://localhost:8081/.well-known/jwks.json}
+  cloud:
+    gateway:
+      default-filters:
+        - DedupeResponseHeader=Access-Control-Allow-Origin, RETAIN_FIRST
+      routes:
+        - id: identity
+          uri: ${IDENTITY_URL:http://localhost:8081}
+          predicates: [ "Path=/api/v1/auth/**" ]
+          filters:
+            - name: RequestRateLimiter      # per-IP limit on credential endpoints
+              args:
+                key-resolver: "#{@ipKeyResolver}"
+                redis-rate-limiter.replenishRate: 5
+                redis-rate-limiter.burstCapacity: 10
+        - id: profile
+          uri: ${PROFILE_URL:http://localhost:8082}
+          predicates: [ "Path=/api/v1/profiles/**" ]
+          filters:
+            - name: RequestRateLimiter      # per-user limit on authenticated APIs
+              args:
+                key-resolver: "#{@userKeyResolver}"
+                redis-rate-limiter.replenishRate: 20
+                redis-rate-limiter.burstCapacity: 40
+      globalcors:
+        cors-configurations:
+          '[/**]':
+            allowedOrigins: ${PJ_CORS_ORIGINS:http://localhost:5173}
+            allowedMethods: [ GET, POST, PUT, PATCH, DELETE, OPTIONS ]
+            allowedHeaders: "*"
+management:
+  endpoints.web.exposure.include: health,info,prometheus

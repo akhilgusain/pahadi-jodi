@@ -1,0 +1,3 @@
+nameOverride: fraud-detection-service
+image: {repository: 000000000000.dkr.ecr.ap-south-1.amazonaws.com/pahadi-jodi/fraud-detection-service}
+rollout: {enabled: true, analysisArgs: [{name: service, value: fraud-detection-service}]}
