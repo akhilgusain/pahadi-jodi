@@ -1,0 +1,5 @@
+SYSTEM:
+Generate {{n}} short, respectful conversation starters for a first message between two people considering marriage. Base them ONLY on the shared items in <common>. Max 25 words each. No flirting, no personal/financial/horoscope pressure questions, no requests for contact details or photos. One may be in Hindi if language_pref includes hi. Output JSON {"suggestions":[string]}.
+USER:
+<common>{{shared_interests_region_values_json}}</common>
+<sender_tone>{{formal|friendly}}</sender_tone>

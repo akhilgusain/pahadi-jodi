@@ -1,0 +1,42 @@
+server:
+  port: 8088
+spring:
+  application:
+    name: subscription-service
+  datasource:
+    url: ${DB_URL:jdbc:postgresql://localhost:5432/pahadijodi}
+    username: ${DB_USER:pj}
+    password: ${DB_PASSWORD:pj_local_only}
+  jpa:
+    open-in-view: false
+    hibernate:
+      ddl-auto: none
+    properties:
+      hibernate.default_schema: subscription
+  flyway:
+    schemas: subscription
+    create-schemas: true
+    locations: classpath:db/migration,classpath:db/outbox
+  kafka:
+    bootstrap-servers: ${KAFKA_BOOTSTRAP:localhost:9092}
+    consumer:
+      group-id: subscription-service
+      auto-offset-reset: earliest
+  security:
+    oauth2:
+      resourceserver:
+        jwt:
+          jwk-set-uri: ${PJ_JWKS_URI:http://localhost:8081/.well-known/jwks.json}
+management:
+  endpoints.web.exposure.include: health,info,prometheus
+pj:
+  kafka:
+    consumers:
+      enabled: ${PJ_KAFKA_CONSUMERS:true}
+  subscription:
+    grace-days: 3
+    dev-endpoints: false          # true only for local dev (h2 profile)
+    expiry-sweep-ms: 300000
+  outbox:
+    relay:
+      enabled: ${PJ_OUTBOX_RELAY:true}

@@ -25,18 +25,22 @@ public class AuthService {
     private final TokenService tokens;
     private final OutboxService outbox;
     private final long refreshTtlDays;
+    private final java.util.Set<String> adminEmails;
     /** Used to equalise timing when the email is unknown (avoid user enumeration). */
     private final String dummyHash;
 
     public AuthService(AccountRepository accounts, RefreshTokenRepository refreshTokens,
                        PasswordEncoder encoder, TokenService tokens, OutboxService outbox,
-                       @Value("${pj.jwt.refresh-ttl-days}") long refreshTtlDays) {
+                       @Value("${pj.jwt.refresh-ttl-days}") long refreshTtlDays,
+                       @Value("${pj.admin-emails:}") String adminEmails) {
         this.accounts = accounts;
         this.refreshTokens = refreshTokens;
         this.encoder = encoder;
         this.tokens = tokens;
         this.outbox = outbox;
         this.refreshTtlDays = refreshTtlDays;
+        this.adminEmails = java.util.Arrays.stream(adminEmails.split(",")).map(String::trim).map(String::toLowerCase)
+                .filter(x -> !x.isEmpty()).collect(java.util.stream.Collectors.toSet());
         this.dummyHash = encoder.encode("timing-equaliser");
     }
 
@@ -52,7 +56,7 @@ public class AuthService {
         }
         outbox.publish("pj.identity.user-registered.v1", "UserRegistered", a.getId().toString(),
                 Map.of("userId", a.getId().toString()));   // no PII in events
-        return issue(a.getId(), UUID.randomUUID());
+        return issue(a.getId(), a.getEmail(), UUID.randomUUID());
     }
 
     @Transactional
@@ -62,7 +66,7 @@ public class AuthService {
         if (a == null || !ok || !a.isActive()) {
             throw new PjException(HttpStatus.UNAUTHORIZED, "INVALID_CREDENTIALS", "Invalid email or password");
         }
-        return issue(a.getId(), UUID.randomUUID());
+        return issue(a.getId(), a.getEmail(), UUID.randomUUID());
     }
 
     /** Rotation with reuse detection: presenting a used token revokes the whole family. */
@@ -78,14 +82,15 @@ public class AuthService {
             throw new PjException(HttpStatus.UNAUTHORIZED, "INVALID_REFRESH_TOKEN", "Refresh token expired");
         }
         t.markUsed();
-        return issue(t.getAccountId(), t.getFamilyId());
+        String email = accounts.findById(t.getAccountId()).map(Account::getEmail).orElse("");
+        return issue(t.getAccountId(), email, t.getFamilyId());
     }
 
-    private Tokens issue(UUID accountId, UUID family) {
+    private Tokens issue(UUID accountId, String email, UUID family) {
         String refresh = tokens.newRefreshToken();
         refreshTokens.save(new RefreshToken(accountId, family, TokenService.hash(refresh),
                 Instant.now().plus(Duration.ofDays(refreshTtlDays))));
-        return new Tokens(tokens.accessToken(accountId, List.of("USER")), refresh,
+        return new Tokens(tokens.accessToken(accountId, adminEmails.contains(email) ? List.of("USER", "ADMIN") : List.of("USER")), refresh,
                 tokens.accessTtlSeconds(), "Bearer");
     }
 

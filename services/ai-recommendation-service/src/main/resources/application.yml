@@ -1,0 +1,47 @@
+server:
+  port: 8090
+spring:
+  application:
+    name: ai-recommendation-service
+  datasource:
+    url: ${DB_URL:jdbc:postgresql://localhost:5432/pahadijodi}
+    username: ${DB_USER:pj}
+    password: ${DB_PASSWORD:pj_local_only}
+  jpa:
+    open-in-view: false
+    hibernate:
+      ddl-auto: none
+    properties:
+      hibernate.default_schema: airec
+  flyway:
+    schemas: airec
+    create-schemas: true
+    locations: classpath:db/migration,classpath:db/outbox
+  kafka:
+    bootstrap-servers: ${KAFKA_BOOTSTRAP:localhost:9092}
+  security:
+    oauth2:
+      resourceserver:
+        jwt:
+          jwk-set-uri: ${PJ_JWKS_URI:http://localhost:8081/.well-known/jwks.json}
+management:
+  endpoints.web.exposure.include: health,info,prometheus
+pj:
+  kafka:
+    consumers:
+      enabled: ${PJ_KAFKA_CONSUMERS:true}
+  outbox:
+    relay:
+      enabled: ${PJ_OUTBOX_RELAY:true}
+  ai:
+    provider: ${PJ_AI_PROVIDER:fake}        # fake (deterministic, no keys) | real (Azure OpenAI)
+    daily-quota: 30                          # generation requests per user per day (hook: replace with plan-based policy)
+    cache-ttl-hours: 24
+    max-output-chars: 4000
+    azure:
+      endpoint: ${AZURE_OPENAI_ENDPOINT:}
+      api-key: ${AZURE_OPENAI_API_KEY:}
+      deployment: ${AZURE_OPENAI_DEPLOYMENT:}                       # chat model deployment name
+      embedding-deployment: ${AZURE_OPENAI_EMBEDDING_DEPLOYMENT:}   # embeddings deployment name
+      api-version: 2024-06-01
+      timeout-seconds: 8

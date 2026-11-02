@@ -1,0 +1,19 @@
+# Zero-infrastructure local mode:  SPRING_PROFILES_ACTIVE=h2   (in-memory, data lost on restart)
+spring:
+  datasource:
+    url: jdbc:h2:mem:fraud;MODE=PostgreSQL;DB_CLOSE_DELAY=-1
+    username: sa
+    password: ""
+  jpa:
+    properties:
+      hibernate.default_schema: PUBLIC
+  flyway:
+    schemas: PUBLIC
+    create-schemas: false
+pj:
+  outbox:
+    relay:
+      enabled: false   # no Kafka in this mode; events accumulate in outbox_event
+  kafka:
+    consumers:
+      enabled: false

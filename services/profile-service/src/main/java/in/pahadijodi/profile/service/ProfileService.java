@@ -34,10 +34,25 @@ public class ProfileService {
                 r.district(), r.village(), r.nativePlace(), r.motherTongue(), r.education(), r.occupation(), r.bio());
         p = repo.save(p);
         // search-service consumes this to (re)index; keep payload to non-sensitive search facets
-        outbox.publish("pj.profile.updated.v1", isNew ? "ProfileCreated" : "ProfileUpdated", p.getId().toString(),
-                Map.of("profileId", p.getId().toString(), "userId", userId.toString(),
-                        "community", p.getCommunity().name(), "district", p.getDistrict().name(),
-                        "division", p.getDistrict().division().name(), "completeness", p.getCompleteness()));
+        var doc = new java.util.LinkedHashMap<String, Object>();
+        doc.put("profileId", p.getId().toString());
+        doc.put("userId", userId.toString());
+        doc.put("displayName", p.getDisplayName());
+        doc.put("gender", p.getGender().name());
+        doc.put("age", Period.between(p.getDateOfBirth(), LocalDate.now()).getYears());
+        doc.put("community", p.getCommunity().name());
+        doc.put("caste", p.getCaste());
+        doc.put("subCaste", p.getSubCaste());
+        doc.put("gotra", p.getGotra());
+        doc.put("district", p.getDistrict().name());
+        doc.put("division", p.getDistrict().division().name());
+        doc.put("village", p.getVillage());
+        doc.put("education", p.getEducation());
+        doc.put("occupation", p.getOccupation());
+        doc.put("motherTongue", p.getMotherTongue());
+        doc.put("completeness", p.getCompleteness());
+        // consumed by search-service, matchmaking-service, ai-recommendation-service, horoscope-service (facets only; no contact data)
+        outbox.publish("pj.profile.updated.v1", isNew ? "ProfileCreated" : "ProfileUpdated", p.getId().toString(), doc);
         return p;
     }
 

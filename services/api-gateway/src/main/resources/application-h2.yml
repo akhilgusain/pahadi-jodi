@@ -1,0 +1,5 @@
+# Zero-infrastructure local mode: no Redis. The rate limiter fails open and its health indicator is disabled.
+management:
+  health:
+    redis:
+      enabled: false

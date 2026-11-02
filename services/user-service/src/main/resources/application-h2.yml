@@ -1,0 +1,19 @@
+# Zero-infrastructure local mode:  SPRING_PROFILES_ACTIVE=h2
+spring:
+  datasource:
+    url: jdbc:h2:mem:user;MODE=PostgreSQL;DB_CLOSE_DELAY=-1
+    username: sa
+    password: ""
+  jpa:
+    properties:
+      hibernate.default_schema: PUBLIC
+  flyway:
+    schemas: PUBLIC
+    create-schemas: false
+pj:
+  kafka:
+    consumers:
+      enabled: false
+  outbox:
+    relay:
+      enabled: false

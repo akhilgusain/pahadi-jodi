@@ -1,2 +1,3 @@
 in.pahadijodi.common.outbox.OutboxAutoConfiguration
 in.pahadijodi.common.web.ProblemAdvice
+in.pahadijodi.common.security.ResourceServerAutoConfiguration

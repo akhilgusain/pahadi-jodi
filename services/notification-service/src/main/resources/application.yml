@@ -1,0 +1,64 @@
+server:
+  port: 8087
+spring:
+  application:
+    name: notification-service
+  datasource:
+    url: ${DB_URL:jdbc:postgresql://localhost:5432/pahadijodi}
+    username: ${DB_USER:pj}
+    password: ${DB_PASSWORD:pj_local_only}
+  jpa:
+    open-in-view: false
+    hibernate:
+      ddl-auto: none
+    properties:
+      hibernate.default_schema: notification
+  flyway:
+    schemas: notification
+    create-schemas: true
+    locations: classpath:db/migration,classpath:db/outbox
+  kafka:
+    bootstrap-servers: ${KAFKA_BOOTSTRAP:localhost:9092}
+    consumer:
+      group-id: notification-service
+      auto-offset-reset: earliest
+  security:
+    oauth2:
+      resourceserver:
+        jwt:
+          jwk-set-uri: ${PJ_JWKS_URI:http://localhost:8081/.well-known/jwks.json}
+management:
+  endpoints.web.exposure.include: health,info,prometheus
+pj:
+  kafka:
+    consumers:
+      enabled: ${PJ_KAFKA_CONSUMERS:true}
+  outbox:
+    relay:
+      enabled: ${PJ_OUTBOX_RELAY:true}
+  notification:
+    provider: fake                       # only fake channel adapters exist so far (see docs/03)
+    topics:                              # configurable: docs/05 uses longer names (pj.matching.interest.sent.v1 ...)
+      user-registered: ${PJ_TOPIC_USER_REGISTERED:pj.identity.user-registered.v1}
+      interest-sent: ${PJ_TOPIC_INTEREST_SENT:pj.interest.sent.v1}
+      interest-accepted: ${PJ_TOPIC_INTEREST_ACCEPTED:pj.interest.accepted.v1}
+      match-created: ${PJ_TOPIC_MATCH_CREATED:pj.match.created.v1}
+      chat-message-sent: ${PJ_TOPIC_CHAT_MESSAGE_SENT:pj.chat.message-sent.v1}
+      payment-captured: ${PJ_TOPIC_PAYMENT_CAPTURED:pj.payment.captured.v1}
+      subscription-expired: ${PJ_TOPIC_SUBSCRIPTION_EXPIRED:pj.subscription.expired.v1}
+      profile-verified: ${PJ_TOPIC_PROFILE_VERIFIED:pj.profile.verified.v1}
+    daily-caps:                          # engagement notifications per user per IST day
+      push: 6
+      email: 2
+      sms: 1
+      whatsapp: 2
+    quiet-hours:                         # default when the user has no saved preference (IST)
+      start-hour: 22
+      end-hour: 8
+    delivery:
+      max-attempts: 5
+      backoff-seconds: 30                # delay = backoff * 2^(attempt-1)
+      batch-size: 50
+    worker:
+      enabled: true
+      interval-ms: 2000

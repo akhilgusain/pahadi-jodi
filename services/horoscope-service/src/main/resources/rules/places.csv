@@ -1,0 +1,41 @@
+id,name,region,lat,lon,tz
+dehradun,Dehradun,Uttarakhand,30.3165,78.0322,Asia/Kolkata
+haridwar,Haridwar,Uttarakhand,29.9457,78.1642,Asia/Kolkata
+rishikesh,Rishikesh,Uttarakhand,30.0869,78.2676,Asia/Kolkata
+roorkee,Roorkee,Uttarakhand,29.8543,77.8880,Asia/Kolkata
+mussoorie,Mussoorie,Uttarakhand,30.4598,78.0644,Asia/Kolkata
+tehri,Tehri,Uttarakhand,30.3783,78.4800,Asia/Kolkata
+uttarkashi,Uttarkashi,Uttarakhand,30.7268,78.4354,Asia/Kolkata
+pauri,Pauri,Uttarakhand,30.1500,78.7800,Asia/Kolkata
+srinagar-garhwal,Srinagar (Garhwal),Uttarakhand,30.2200,78.7800,Asia/Kolkata
+kotdwar,Kotdwar,Uttarakhand,29.7450,78.5200,Asia/Kolkata
+lansdowne,Lansdowne,Uttarakhand,29.8370,78.6830,Asia/Kolkata
+gopeshwar,Gopeshwar (Chamoli),Uttarakhand,30.4100,79.3200,Asia/Kolkata
+rudraprayag,Rudraprayag,Uttarakhand,30.2844,78.9811,Asia/Kolkata
+nainital,Nainital,Uttarakhand,29.3919,79.4542,Asia/Kolkata
+haldwani,Haldwani,Uttarakhand,29.2183,79.5130,Asia/Kolkata
+rudrapur,Rudrapur,Uttarakhand,28.9845,79.4000,Asia/Kolkata
+kashipur,Kashipur,Uttarakhand,29.2104,78.9619,Asia/Kolkata
+ranikhet,Ranikhet,Uttarakhand,29.6434,79.4322,Asia/Kolkata
+almora,Almora,Uttarakhand,29.5971,79.6591,Asia/Kolkata
+bageshwar,Bageshwar,Uttarakhand,29.8376,79.7704,Asia/Kolkata
+pithoragarh,Pithoragarh,Uttarakhand,29.5829,80.2182,Asia/Kolkata
+champawat,Champawat,Uttarakhand,29.3350,80.0900,Asia/Kolkata
+delhi,Delhi,India,28.6139,77.2090,Asia/Kolkata
+noida,Noida,India,28.5355,77.3910,Asia/Kolkata
+gurugram,Gurugram,India,28.4595,77.0266,Asia/Kolkata
+chandigarh,Chandigarh,India,30.7333,76.7794,Asia/Kolkata
+lucknow,Lucknow,India,26.8467,80.9462,Asia/Kolkata
+mumbai,Mumbai,India,19.0760,72.8777,Asia/Kolkata
+pune,Pune,India,18.5204,73.8567,Asia/Kolkata
+bengaluru,Bengaluru,India,12.9716,77.5946,Asia/Kolkata
+hyderabad,Hyderabad,India,17.3850,78.4867,Asia/Kolkata
+chennai,Chennai,India,13.0827,80.2707,Asia/Kolkata
+kolkata,Kolkata,India,22.5726,88.3639,Asia/Kolkata
+dubai,Dubai,UAE,25.2048,55.2708,Asia/Dubai
+singapore,Singapore,Singapore,1.3521,103.8198,Asia/Singapore
+london,London,UK,51.5074,-0.1278,Europe/London
+new-york,New York,USA,40.7128,-74.0060,America/New_York
+san-francisco,San Francisco,USA,37.7749,-122.4194,America/Los_Angeles
+toronto,Toronto,Canada,43.6532,-79.3832,America/Toronto
+sydney,Sydney,Australia,-33.8688,151.2093,Australia/Sydney

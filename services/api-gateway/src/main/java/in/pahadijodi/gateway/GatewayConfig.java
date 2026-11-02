@@ -1,6 +1,7 @@
 package in.pahadijodi.gateway;
 
 import java.util.Optional;
+import org.springframework.http.HttpMethod;
 import org.springframework.cloud.gateway.filter.ratelimit.KeyResolver;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
@@ -23,6 +24,10 @@ public class GatewayConfig {
                 .csrf(ServerHttpSecurity.CsrfSpec::disable)
                 .authorizeExchange(a -> a
                         .pathMatchers("/api/v1/auth/**", "/actuator/health/**").permitAll()
+                        // services that authenticate these themselves, or that are public by design
+                        .pathMatchers("/ws/**", "/api/v1/notifications/stream", "/api/v1/payments/webhooks/**").permitAll()
+                        .pathMatchers(HttpMethod.GET, "/api/v1/content/**", "/api/v1/subscriptions/plans",
+                                "/api/v1/media/files/**").permitAll()
                         .anyExchange().authenticated())
                 .oauth2ResourceServer(o -> o.jwt(Customizer.withDefaults()))
                 .build();

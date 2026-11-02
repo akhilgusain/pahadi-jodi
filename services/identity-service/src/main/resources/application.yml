@@ -22,6 +22,7 @@ spring:
 management:
   endpoints.web.exposure.include: health,info,prometheus
 pj:
+  admin-emails: ${PJ_ADMIN_EMAILS:}   # comma-separated emails that receive the ADMIN role at token issue
   jwt:
     issuer: ${PJ_JWT_ISSUER:http://localhost:8081}
     access-ttl-seconds: 900

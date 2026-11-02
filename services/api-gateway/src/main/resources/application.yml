@@ -35,6 +35,135 @@ spring:
                 key-resolver: "#{@userKeyResolver}"
                 redis-rate-limiter.replenishRate: 20
                 redis-rate-limiter.burstCapacity: 40
+        - id: users
+          uri: ${USERS_URL:http://localhost:8083}
+          predicates: [ "Path=/api/v1/users/**" ]
+          filters:
+            - name: RequestRateLimiter
+              args:
+                key-resolver: "#{@userKeyResolver}"
+                redis-rate-limiter.replenishRate: 30
+                redis-rate-limiter.burstCapacity: 60
+        - id: subscriptions
+          uri: ${SUBSCRIPTIONS_URL:http://localhost:8088}
+          predicates: [ "Path=/api/v1/subscriptions/**" ]
+          filters:
+            - name: RequestRateLimiter
+              args:
+                key-resolver: "#{@userKeyResolver}"
+                redis-rate-limiter.replenishRate: 30
+                redis-rate-limiter.burstCapacity: 60
+        - id: matches
+          uri: ${MATCHES_URL:http://localhost:8084}
+          predicates: [ "Path=/api/v1/matches/**,/api/v1/interests/**,/api/v1/shortlist/**" ]
+          filters:
+            - name: RequestRateLimiter
+              args:
+                key-resolver: "#{@userKeyResolver}"
+                redis-rate-limiter.replenishRate: 30
+                redis-rate-limiter.burstCapacity: 60
+        - id: search
+          uri: ${SEARCH_URL:http://localhost:8085}
+          predicates: [ "Path=/api/v1/search/**" ]
+          filters:
+            - name: RequestRateLimiter
+              args:
+                key-resolver: "#{@userKeyResolver}"
+                redis-rate-limiter.replenishRate: 30
+                redis-rate-limiter.burstCapacity: 60
+        - id: chat
+          uri: ${CHAT_URL:http://localhost:8086}
+          predicates: [ "Path=/api/v1/chat/**" ]
+          filters:
+            - name: RequestRateLimiter
+              args:
+                key-resolver: "#{@userKeyResolver}"
+                redis-rate-limiter.replenishRate: 30
+                redis-rate-limiter.burstCapacity: 60
+        - id: notifications
+          uri: ${NOTIFICATIONS_URL:http://localhost:8087}
+          predicates: [ "Path=/api/v1/notifications/**" ]
+          filters:
+            - name: RequestRateLimiter
+              args:
+                key-resolver: "#{@userKeyResolver}"
+                redis-rate-limiter.replenishRate: 30
+                redis-rate-limiter.burstCapacity: 60
+        - id: payments
+          uri: ${PAYMENTS_URL:http://localhost:8089}
+          predicates: [ "Path=/api/v1/payments/**" ]
+          filters:
+            - name: RequestRateLimiter
+              args:
+                key-resolver: "#{@userKeyResolver}"
+                redis-rate-limiter.replenishRate: 30
+                redis-rate-limiter.burstCapacity: 60
+        - id: ai
+          uri: ${AI_URL:http://localhost:8090}
+          predicates: [ "Path=/api/v1/ai/**" ]
+          filters:
+            - name: RequestRateLimiter
+              args:
+                key-resolver: "#{@userKeyResolver}"
+                redis-rate-limiter.replenishRate: 30
+                redis-rate-limiter.burstCapacity: 60
+        - id: media
+          uri: ${MEDIA_URL:http://localhost:8091}
+          predicates: [ "Path=/api/v1/media/**,/api/v1/verification/**" ]
+          filters:
+            - name: RequestRateLimiter
+              args:
+                key-resolver: "#{@userKeyResolver}"
+                redis-rate-limiter.replenishRate: 30
+                redis-rate-limiter.burstCapacity: 60
+        - id: moderation
+          uri: ${MODERATION_URL:http://localhost:8092}
+          predicates: [ "Path=/api/v1/moderation/**" ]
+          filters:
+            - name: RequestRateLimiter
+              args:
+                key-resolver: "#{@userKeyResolver}"
+                redis-rate-limiter.replenishRate: 30
+                redis-rate-limiter.burstCapacity: 60
+        - id: horoscope
+          uri: ${HOROSCOPE_URL:http://localhost:8093}
+          predicates: [ "Path=/api/v1/horoscope/**" ]
+          filters:
+            - name: RequestRateLimiter
+              args:
+                key-resolver: "#{@userKeyResolver}"
+                redis-rate-limiter.replenishRate: 30
+                redis-rate-limiter.burstCapacity: 60
+        - id: analytics
+          uri: ${ANALYTICS_URL:http://localhost:8094}
+          predicates: [ "Path=/api/v1/analytics/**" ]
+          filters:
+            - name: RequestRateLimiter
+              args:
+                key-resolver: "#{@userKeyResolver}"
+                redis-rate-limiter.replenishRate: 30
+                redis-rate-limiter.burstCapacity: 60
+        - id: admin
+          uri: ${ADMIN_URL:http://localhost:8095}
+          predicates: [ "Path=/api/v1/admin/**,/api/v1/content/**" ]
+          filters:
+            - name: RequestRateLimiter
+              args:
+                key-resolver: "#{@userKeyResolver}"
+                redis-rate-limiter.replenishRate: 30
+                redis-rate-limiter.burstCapacity: 60
+        - id: fraud
+          uri: ${FRAUD_URL:http://localhost:8096}
+          predicates: [ "Path=/api/v1/fraud/**" ]
+          filters:
+            - name: RequestRateLimiter
+              args:
+                key-resolver: "#{@userKeyResolver}"
+                redis-rate-limiter.replenishRate: 30
+                redis-rate-limiter.burstCapacity: 60
+        - id: chat-ws                  # STOMP over WebSocket; the service authenticates the ?token= itself
+          uri: ${CHAT_WS_URL:ws://localhost:8086}
+          predicates: [ "Path=/ws/**" ]
       globalcors:
         cors-configurations:
           '[/**]':

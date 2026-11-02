@@ -1,0 +1,48 @@
+server:
+  port: 8093
+spring:
+  application:
+    name: horoscope-service
+  datasource:
+    url: ${DB_URL:jdbc:postgresql://localhost:5432/pahadijodi}
+    username: ${DB_USER:pj}
+    password: ${DB_PASSWORD:pj_local_only}
+  jpa:
+    open-in-view: false
+    hibernate:
+      ddl-auto: none
+    properties:
+      hibernate.default_schema: horoscope
+  flyway:
+    schemas: horoscope
+    create-schemas: true
+    locations: classpath:db/migration,classpath:db/outbox
+  kafka:
+    bootstrap-servers: ${KAFKA_BOOTSTRAP:localhost:9092}
+    consumer:
+      group-id: horoscope-service
+      auto-offset-reset: earliest
+      key-deserializer: org.apache.kafka.common.serialization.StringDeserializer
+      value-deserializer: org.apache.kafka.common.serialization.StringDeserializer
+  security:
+    oauth2:
+      resourceserver:
+        jwt:
+          jwk-set-uri: ${PJ_JWKS_URI:http://localhost:8081/.well-known/jwks.json}
+management:
+  endpoints.web.exposure.include: health,info,prometheus
+pj:
+  kafka:
+    consumers:
+      enabled: ${PJ_KAFKA_CONSUMERS:true}
+  outbox:
+    relay:
+      enabled: ${PJ_OUTBOX_RELAY:true}
+  horoscope:
+    # fake = built-in gazetteer + pure-Java approximate ephemeris (see ApproxEphemeris for accuracy limits)
+    # real = Swiss Ephemeris adapter (licence decision pending, docs/04 section 14.3); not bundled yet
+    provider: ${PJ_HOROSCOPE_PROVIDER:fake}
+    # AES-256 key, base64 (32 bytes) for birth-data field encryption. Generate: openssl rand -base64 32
+    data-key: ${PJ_HOROSCOPE_DATA_KEY:}
+    require-encryption: ${PJ_HOROSCOPE_REQUIRE_ENCRYPTION:false}   # set true in prod: startup fails without a key
+    manglik-include-moon: true

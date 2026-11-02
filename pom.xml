@@ -19,8 +19,23 @@
   </properties>
   <modules>
     <module>libs/pj-common</module>
+    <module>tools/dev-kafka</module>
     <module>services/identity-service</module>
     <module>services/profile-service</module>
+    <module>services/user-service</module>
+    <module>services/subscription-service</module>
+    <module>services/matchmaking-service</module>
+    <module>services/search-service</module>
+    <module>services/chat-service</module>
+    <module>services/notification-service</module>
+    <module>services/payment-service</module>
+    <module>services/ai-recommendation-service</module>
+    <module>services/media-service</module>
+    <module>services/moderation-service</module>
+    <module>services/horoscope-service</module>
+    <module>services/analytics-service</module>
+    <module>services/admin-service</module>
+    <module>services/fraud-detection-service</module>
     <module>services/api-gateway</module>
   </modules>
   <dependencyManagement>
